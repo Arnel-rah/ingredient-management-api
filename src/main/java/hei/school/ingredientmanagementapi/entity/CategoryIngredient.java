@@ -1,4 +1,5 @@
 package hei.school.ingredientmanagementapi.entity;
 
-public class CategoryIngredient {
+public enum CategoryIngredient {
+    VEGETABLE, DAIRY, OTHER, ANIMAL,
 }
