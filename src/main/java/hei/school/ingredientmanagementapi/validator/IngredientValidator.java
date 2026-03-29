@@ -1,14 +1,24 @@
 package hei.school.ingredientmanagementapi.validator;
 
-import org.springframework.stereotype.Component;
+import hei.school.ingredientmanagementapi.exception.BadRequestException;
+import hei.school.ingredientmanagementapi.entity.Ingredient;
 
-import java.time.Instant;
+import java.util.List;
 
-@Component
 public class IngredientValidator {
-    public void validateStockParams(Instant at, String unit) {
-        if (at == null || unit == null || unit.isBlank()) {
-            throw new IllegalArgumentException("Parameter 'at' or 'unit' cannot be null or blank");
+    public void validateStockParams(String at, String unit) {
+        if (at == null || unit == null) {
+            throw new BadRequestException(
+                    "Either mandatory query parameter `at` or `unit` is not provided."
+            );
+        }
+    }
+
+    public void validateIngredientList(List<Ingredient> ingredients) {
+        if (ingredients == null) {
+            throw new BadRequestException(
+                    "Request body with ingredient list is required."
+            );
         }
     }
 }
