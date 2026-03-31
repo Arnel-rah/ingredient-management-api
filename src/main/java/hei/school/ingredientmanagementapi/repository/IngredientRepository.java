@@ -16,18 +16,16 @@ public class IngredientRepository {
     public IngredientRepository(DataSource dataSource) {
         this.dataSource = dataSource;
     }
-    private Ingredient mapRow(ResultSet rs) {
-       try {
-           return new Ingredient(
-                   rs.getInt("id"),
-                   rs.getString("name"),
-                   rs.getDouble("price"),
-                   CategoryIngredient.valueOf(rs.getString("category"))
-           );
-       }catch (SQLException e){
-           throw new RuntimeException(e);
-       }
+
+    private Ingredient mapRow(ResultSet rs) throws SQLException {
+        return new Ingredient(
+                rs.getInt("id"),
+                rs.getString("name"),
+                rs.getDouble("price"),
+                CategoryIngredient.valueOf(rs.getString("category"))
+        );
     }
+
     public List<Ingredient> findAll() {
         List<Ingredient> ingredients = new ArrayList<>();
         String sql = "SELECT id, name, price, category FROM ingredient ORDER BY id";
@@ -41,13 +39,12 @@ public class IngredientRepository {
             }
 
         } catch (SQLException e) {
-            throw new RuntimeException("Erreur lors de la récupération des ingrédients", e);
-        } catch (IllegalArgumentException e) {
-            throw new RuntimeException("La catégorie en BDD ne correspond à aucun Enum Java", e);
+            throw new RuntimeException("Error while fetching ingredients", e);
         }
 
         return ingredients;
     }
+
     public Ingredient findById(int id) {
         String sql = "SELECT id, name, price, category FROM ingredient WHERE id = ?";
 
@@ -61,14 +58,16 @@ public class IngredientRepository {
                 return mapRow(rs);
             }
 
-            throw new RuntimeException("Ingredient.id=" + id + " is not found");
+            return null;
 
         } catch (SQLException e) {
-            throw new RuntimeException("Erreur lors de la récupération de l'ingrédient", e);
+            throw new RuntimeException("Error while fetching ingredient", e);
         }
     }
+
     public List<StockMovement> findStockMovements(int ingredientId) {
         List<StockMovement> list = new ArrayList<>();
+
         String sql = "SELECT id, quantity, type, unit, creation_datetime " +
                 "FROM stockmovement WHERE id_ingredient = ? ORDER BY creation_datetime";
 
@@ -83,17 +82,17 @@ public class IngredientRepository {
                         rs.getDouble("quantity"),
                         UnitEnum.valueOf(rs.getString("unit"))
                 );
-                StockMovement sm = new StockMovement(
+
+                list.add(new StockMovement(
                         rs.getInt("id"),
                         value,
                         MovementTypeEnum.valueOf(rs.getString("type")),
                         rs.getTimestamp("creation_datetime").toInstant()
-                );
-                list.add(sm);
+                ));
             }
 
         } catch (SQLException e) {
-            throw new RuntimeException("Erreur lors de la récupération des mouvements de stock", e);
+            throw new RuntimeException("Error while fetching stock movements", e);
         }
 
         return list;
