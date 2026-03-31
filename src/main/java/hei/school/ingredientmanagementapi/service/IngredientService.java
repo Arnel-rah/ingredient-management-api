@@ -3,47 +3,43 @@ package hei.school.ingredientmanagementapi.service;
 import hei.school.ingredientmanagementapi.entity.Ingredient;
 import hei.school.ingredientmanagementapi.entity.StockValue;
 import hei.school.ingredientmanagementapi.entity.UnitEnum;
+import hei.school.ingredientmanagementapi.exception.BadRequestException;
 import hei.school.ingredientmanagementapi.repository.IngredientRepository;
 import hei.school.ingredientmanagementapi.validator.IngredientValidator;
+import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
 
+@Service
 public class IngredientService {
 
     private final IngredientRepository ingredientRepository;
     private final IngredientValidator ingredientValidator;
 
-    public IngredientService(IngredientRepository ingredientRepository) {
+    public IngredientService(IngredientRepository ingredientRepository,
+                             IngredientValidator ingredientValidator) {
         this.ingredientRepository = ingredientRepository;
-        this.ingredientValidator = new IngredientValidator();
+        this.ingredientValidator = ingredientValidator;
     }
 
-    // GET /ingredients
     public List<Ingredient> getAll() {
-        return ingredientRepository.findAll();      // était findAll(), aligné avec le repository
+        return ingredientRepository.findAll();
     }
 
-    // GET /ingredients/{id}
     public Ingredient getById(int id) {
-        return ingredientRepository.findById(id);   // NotFoundException levée dans le repository
+        return ingredientRepository.findById(id);
     }
 
-    // GET /ingredients/{id}/stock?at=...&unit=...
-    public StockValue getStockAt(int id, String at, String unit) {
-        // 1. Validation des paramètres (400 si manquants)
+    public StockValue getStockAt(int id, String at, String unit) throws BadRequestException {
         ingredientValidator.validateStockParams(at, unit);
-
-        // 2. Récupérer l'ingrédient (404 si non trouvé)
         Ingredient ingredient = ingredientRepository.findById(id);
-
-        // 3. Charger les mouvements de stock
+        if (ingredient == null) {
+            return null;
+        }
         ingredient.setStockMovementList(ingredientRepository.findStockMovements(id));
-
-        // 4. Calculer le stock à l'instant t
         Instant instant = Instant.parse(at);
         UnitEnum unitEnum = UnitEnum.valueOf(unit.toUpperCase());
-
         StockValue sv = ingredient.getStockValueAt(instant);
         sv.setUnit(unitEnum);
         return sv;
