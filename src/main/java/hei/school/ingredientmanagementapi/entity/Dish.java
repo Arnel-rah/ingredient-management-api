@@ -1,18 +1,28 @@
 package hei.school.ingredientmanagementapi.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.List;
 
 public class Dish {
     private Integer id;
+    @Setter
+    @Getter
     private String name;
 
+    @Setter
+    @Getter
     @JsonProperty("dish_type")
     private DishTypeEnum dishType;
 
+    @Setter
+    @Getter
     @JsonProperty("selling_price")
     private Double sellingPrice;
+    @Setter
+    @Getter
     private List<Ingredient> ingredients;
 
     public Dish() {}
@@ -28,15 +38,4 @@ public class Dish {
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public DishTypeEnum getDishType() { return dishType; }
-    public void setDishType(DishTypeEnum dishType) { this.dishType = dishType; }
-
-    public Double getSellingPrice() { return sellingPrice; }
-    public void setSellingPrice(Double sellingPrice) { this.sellingPrice = sellingPrice; }
-
-    public List<Ingredient> getIngredients() { return ingredients; }
-    public void setIngredients(List<Ingredient> ingredients) { this.ingredients = ingredients; }
 }
