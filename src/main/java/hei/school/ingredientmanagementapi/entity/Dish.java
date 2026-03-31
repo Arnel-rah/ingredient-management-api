@@ -1,11 +1,17 @@
 package hei.school.ingredientmanagementapi.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.List;
 
 public class Dish {
-    private int id;
+    private Integer id;
     private String name;
+
+    @JsonProperty("dish_type")
     private DishTypeEnum dishType;
+
+    @JsonProperty("selling_price")
     private Double sellingPrice;
     private List<Ingredient> ingredients;
 
