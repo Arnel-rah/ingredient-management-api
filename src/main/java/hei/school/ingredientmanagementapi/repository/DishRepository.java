@@ -15,6 +15,7 @@ public class DishRepository {
     public DishRepository(DataSource dataSource) {
         this.dataSource = dataSource;
     }
+
     private Ingredient mapIngredient(ResultSet rs) throws SQLException {
         return new Ingredient(
                 rs.getInt("ing_id"),
@@ -23,6 +24,7 @@ public class DishRepository {
                 CategoryIngredient.valueOf(rs.getString("ing_category"))
         );
     }
+
     public List<Dish> findAll() {
         String sql =
                 "SELECT d.id, d.name, d.dish_type, d.selling_price, " +
@@ -41,18 +43,22 @@ public class DishRepository {
 
             while (rs.next()) {
                 int dishId = rs.getInt("id");
+
                 Dish dish = map.computeIfAbsent(dishId, k -> {
                     try {
                         Dish d = new Dish();
                         d.setId(dishId);
                         d.setName(rs.getString("name"));
                         d.setDishType(DishTypeEnum.valueOf(rs.getString("dish_type")));
+
                         double sp = rs.getDouble("selling_price");
                         d.setSellingPrice(rs.wasNull() ? null : sp);
+
                         d.setIngredients(new ArrayList<>());
                         return d;
+
                     } catch (SQLException e) {
-                        throw new RuntimeException(e);
+                        throw new RuntimeException("Error while mapping dish", e);
                     }
                 });
 
@@ -63,11 +69,12 @@ public class DishRepository {
             }
 
         } catch (SQLException e) {
-            throw new RuntimeException("Erreur lors de la récupération des plats", e);
+            throw new RuntimeException("Error while fetching dishes", e);
         }
 
         return new ArrayList<>(map.values());
     }
+
     public Dish findById(int id) {
         String sql =
                 "SELECT d.id, d.name, d.dish_type, d.selling_price, " +
@@ -76,8 +83,7 @@ public class DishRepository {
                         "FROM dish d " +
                         "LEFT JOIN dishingredient di ON di.id_dish = d.id " +
                         "LEFT JOIN ingredient i ON i.id = di.id_ingredient " +
-                        "WHERE d.id = ? " +
-                        "ORDER BY i.id";
+                        "WHERE d.id = ? ORDER BY i.id";
 
         Dish dish = null;
 
@@ -93,10 +99,13 @@ public class DishRepository {
                     dish.setId(rs.getInt("id"));
                     dish.setName(rs.getString("name"));
                     dish.setDishType(DishTypeEnum.valueOf(rs.getString("dish_type")));
+
                     double sp = rs.getDouble("selling_price");
                     dish.setSellingPrice(rs.wasNull() ? null : sp);
+
                     dish.setIngredients(new ArrayList<>());
                 }
+
                 int ingId = rs.getInt("ing_id");
                 if (!rs.wasNull()) {
                     dish.getIngredients().add(mapIngredient(rs));
@@ -104,30 +113,26 @@ public class DishRepository {
             }
 
         } catch (SQLException e) {
-            throw new RuntimeException("Erreur lors de la récupération du plat", e);
+            throw new RuntimeException("Error while fetching dish", e);
         }
 
-        if (dish == null) {
-            throw new RuntimeException("Dish.id=" + id + " is not found");
-        }
         return dish;
     }
 
     public Dish updateIngredients(int dishId, List<Integer> ingredientIds) {
-        findById(dishId);
-
         String deleteSql = "DELETE FROM dishingredient WHERE id_dish = ?";
         String insertSql =
                 "INSERT INTO dishingredient (id_dish, id_ingredient, quantity_required, unit) " +
-                        "SELECT ?, ?, 1, 'KG' " +
-                        "WHERE EXISTS (SELECT 1 FROM ingredient WHERE id = ?)";
+                        "SELECT ?, ?, 1, 'KG' WHERE EXISTS (SELECT 1 FROM ingredient WHERE id = ?)";
 
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
+
             try {
                 PreparedStatement del = conn.prepareStatement(deleteSql);
                 del.setInt(1, dishId);
                 del.executeUpdate();
+
                 for (int ingId : ingredientIds) {
                     PreparedStatement ins = conn.prepareStatement(insertSql);
                     ins.setInt(1, dishId);
@@ -140,14 +145,15 @@ public class DishRepository {
 
             } catch (Exception e) {
                 conn.rollback();
-                throw new RuntimeException("Erreur lors de la mise à jour des ingrédients", e);
+                throw new RuntimeException("Error while updating ingredients", e);
             } finally {
                 conn.setAutoCommit(true);
             }
 
         } catch (SQLException e) {
-            throw new RuntimeException("Erreur de connexion", e);
+            throw new RuntimeException("Database connection error", e);
         }
+
         return findById(dishId);
     }
 }
