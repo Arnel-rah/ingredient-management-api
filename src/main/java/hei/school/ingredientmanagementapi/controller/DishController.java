@@ -19,13 +19,35 @@ public class DishController {
     public DishController(DishService dishService) {
         this.dishService = dishService;
     }
-
     @GetMapping
-    public ResponseEntity<?> getAllDishes() {
+    public ResponseEntity<?> getAllDishes(
+            @RequestParam(required = false) Double priceUnder,
+            @RequestParam(required = false) Double priceOver,
+            @RequestParam(required = false) String name) {
         try {
-            return ResponseEntity.ok(dishService.getAll());
+            List<Dish> dishes = dishService.getAll(priceUnder, priceOver, name);
+            return ResponseEntity.ok(dishes);
         } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .header("Content-Type", "text/plain")
+                    .body("Error: " + e.getMessage());
+        }
+    }
+
+    @PostMapping
+    public ResponseEntity<?> createDishes(@RequestBody List<Dish> dishes) {
+        try {
+            List<Dish> savedDishes = dishService.saveAll(dishes);
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedDishes);
+        } catch (RuntimeException e) {
+            if (e.getMessage().contains("already exists")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .header("Content-Type", "text/plain")
+                        .body(e.getMessage());
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .header("Content-Type", "text/plain")
+                    .body("Internal Server Error: " + e.getMessage());
         }
     }
 

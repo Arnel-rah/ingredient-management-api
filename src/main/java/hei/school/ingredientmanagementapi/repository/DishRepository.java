@@ -24,47 +24,56 @@ public class DishRepository {
                 CategoryIngredient.valueOf(rs.getString("ing_category"))
         );
     }
-
-    public List<Dish> findAll() {
-        String sql =
+    public List<Dish> findAll(Double priceUnder, Double priceOver, String name) {
+        StringBuilder sql = new StringBuilder(
                 "SELECT d.id, d.name, d.dish_type, d.selling_price, " +
                         "       i.id AS ing_id, i.name AS ing_name, " +
                         "       i.price AS ing_price, i.category AS ing_category " +
                         "FROM dish d " +
                         "LEFT JOIN dishingredient di ON di.id_dish = d.id " +
                         "LEFT JOIN ingredient i ON i.id = di.id_ingredient " +
-                        "ORDER BY d.id, i.id";
+                        "WHERE 1=1 "
+        );
+
+        if (priceUnder != null) sql.append(" AND d.selling_price <= ? ");
+        if (priceOver != null) sql.append(" AND d.selling_price >= ? ");
+        if (name != null) sql.append(" AND d.name ILIKE ? ");
+
+        sql.append(" ORDER BY d.id, i.id");
 
         Map<Integer, Dish> map = new LinkedHashMap<>();
 
         try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int idx = 1;
+            if (priceUnder != null) ps.setDouble(idx++, priceUnder);
+            if (priceOver != null) ps.setDouble(idx++, priceOver);
+            if (name != null) ps.setString(idx++, "%" + name + "%");
 
-            while (rs.next()) {
-                int dishId = rs.getInt("id");
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int dishId = rs.getInt("id");
 
-                Dish dish = map.computeIfAbsent(dishId, k -> {
-                    try {
-                        Dish d = new Dish();
-                        d.setId(dishId);
-                        d.setName(rs.getString("name"));
-                        d.setDishType(DishTypeEnum.valueOf(rs.getString("dish_type")));
+                    Dish dish = map.computeIfAbsent(dishId, k -> {
+                        try {
+                            Dish d = new Dish();
+                            d.setId(dishId);
+                            d.setName(rs.getString("name"));
+                            d.setDishType(DishTypeEnum.valueOf(rs.getString("dish_type")));
 
-                        double sp = rs.getDouble("selling_price");
-                        d.setSellingPrice(rs.wasNull() ? null : sp);
+                            double sp = rs.getDouble("selling_price");
+                            d.setSellingPrice(rs.wasNull() ? null : sp);
 
-                        d.setIngredients(new ArrayList<>());
-                        return d;
+                            d.setIngredients(new ArrayList<>());
+                            return d;
+                        } catch (SQLException e) {
+                            throw new RuntimeException("Error while mapping dish", e);
+                        }
+                    });
 
-                    } catch (SQLException e) {
-                        throw new RuntimeException("Error while mapping dish", e);
+                    if (rs.getObject("ing_id") != null) {
+                        dish.getIngredients().add(mapIngredient(rs));
                     }
-                });
-
-                int ingId = rs.getInt("ing_id");
-                if (!rs.wasNull()) {
-                    dish.getIngredients().add(mapIngredient(rs));
                 }
             }
 
@@ -91,24 +100,23 @@ public class DishRepository {
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, id);
-            ResultSet rs = ps.executeQuery();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    if (dish == null) {
+                        dish = new Dish();
+                        dish.setId(rs.getInt("id"));
+                        dish.setName(rs.getString("name"));
+                        dish.setDishType(DishTypeEnum.valueOf(rs.getString("dish_type")));
 
-            while (rs.next()) {
-                if (dish == null) {
-                    dish = new Dish();
-                    dish.setId(rs.getInt("id"));
-                    dish.setName(rs.getString("name"));
-                    dish.setDishType(DishTypeEnum.valueOf(rs.getString("dish_type")));
+                        double sp = rs.getDouble("selling_price");
+                        dish.setSellingPrice(rs.wasNull() ? null : sp);
 
-                    double sp = rs.getDouble("selling_price");
-                    dish.setSellingPrice(rs.wasNull() ? null : sp);
+                        dish.setIngredients(new ArrayList<>());
+                    }
 
-                    dish.setIngredients(new ArrayList<>());
-                }
-
-                int ingId = rs.getInt("ing_id");
-                if (!rs.wasNull()) {
-                    dish.getIngredients().add(mapIngredient(rs));
+                    if (rs.getObject("ing_id") != null) {
+                        dish.getIngredients().add(mapIngredient(rs));
+                    }
                 }
             }
 
@@ -121,39 +129,83 @@ public class DishRepository {
 
     public Dish updateIngredients(int dishId, List<Integer> ingredientIds) {
         String deleteSql = "DELETE FROM dishingredient WHERE id_dish = ?";
-        String insertSql =
-                "INSERT INTO dishingredient (id_dish, id_ingredient, quantity_required, unit) " +
-                        "SELECT ?, ?, 1, 'KG' WHERE EXISTS (SELECT 1 FROM ingredient WHERE id = ?)";
+        String insertSql = "INSERT INTO dishingredient (id_dish, id_ingredient, quantity_required, unit) VALUES (?, ?, 1, 'KG')";
 
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
+            try (PreparedStatement del = conn.prepareStatement(deleteSql);
+                 PreparedStatement ins = conn.prepareStatement(insertSql)) {
 
-            try {
-                PreparedStatement del = conn.prepareStatement(deleteSql);
                 del.setInt(1, dishId);
                 del.executeUpdate();
 
-                for (int ingId : ingredientIds) {
-                    PreparedStatement ins = conn.prepareStatement(insertSql);
-                    ins.setInt(1, dishId);
-                    ins.setInt(2, ingId);
-                    ins.setInt(3, ingId);
-                    ins.executeUpdate();
+                if (ingredientIds != null) {
+                    for (int ingId : ingredientIds) {
+                        ins.setInt(1, dishId);
+                        ins.setInt(2, ingId);
+                        ins.addBatch();
+                    }
+                    ins.executeBatch();
                 }
-
                 conn.commit();
-
-            } catch (Exception e) {
+            } catch (SQLException e) {
                 conn.rollback();
                 throw new RuntimeException("Error while updating ingredients", e);
-            } finally {
-                conn.setAutoCommit(true);
             }
-
         } catch (SQLException e) {
             throw new RuntimeException("Database connection error", e);
         }
-
         return findById(dishId);
+    }
+
+    public List<Dish> addDishes(List<Dish> dishes) {
+        String checkSql = "SELECT 1 FROM dish WHERE name = ?";
+        String insertDishSql = "INSERT INTO dish (name, dish_type, selling_price) VALUES (?, ?::dish_type, ?) RETURNING id";
+        String insertRelSql = "INSERT INTO dishingredient (id_dish, id_ingredient, quantity_required, unit) VALUES (?, ?, 1, 'KG')";
+
+        try (Connection conn = dataSource.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                for (Dish dish : dishes) {
+                    try (PreparedStatement psCheck = conn.prepareStatement(checkSql)) {
+                        psCheck.setString(1, dish.getName());
+                        try (ResultSet rsCheck = psCheck.executeQuery()) {
+                            if (rsCheck.next()) {
+                                throw new RuntimeException("Dish.name=" + dish.getName() + " already exists");
+                            }
+                        }
+                    }
+
+                    try (PreparedStatement psDish = conn.prepareStatement(insertDishSql)) {
+                        psDish.setString(1, dish.getName());
+                        psDish.setString(2, dish.getDishType().name());
+                        if (dish.getSellingPrice() == null) psDish.setNull(3, Types.NUMERIC);
+                        else psDish.setDouble(3, dish.getSellingPrice());
+
+                        try (ResultSet rs = psDish.executeQuery()) {
+                            if (rs.next()) dish.setId(rs.getInt(1));
+                        }
+                    }
+
+                    if (dish.getIngredients() != null && !dish.getIngredients().isEmpty()) {
+                        try (PreparedStatement psRel = conn.prepareStatement(insertRelSql)) {
+                            for (Ingredient ing : dish.getIngredients()) {
+                                psRel.setInt(1, dish.getId());
+                                psRel.setInt(2, ing.getId());
+                                psRel.addBatch();
+                            }
+                            psRel.executeBatch();
+                        }
+                    }
+                }
+                conn.commit();
+            } catch (Exception e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return dishes;
     }
 }
