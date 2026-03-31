@@ -21,8 +21,8 @@ public class DishService {
         this.ingredientValidator = ingredientValidator;
     }
 
-    public List<Dish> getAll() {
-        return dishRepository.findAll();
+    public List<Dish> getAll(Double priceUnder, Double priceOver, String name) {
+        return dishRepository.findAll(priceUnder, priceOver, name);
     }
 
     public Dish updateIngredients(int dishId, List<Ingredient> ingredients) throws BadRequestException {
@@ -31,5 +31,9 @@ public class DishService {
                 .map(Ingredient::getId)
                 .toList();
         return dishRepository.updateIngredients(dishId, ids);
+    }
+
+    public List<Dish> saveAll(List<Dish> dishes) {
+        return dishRepository.addDishes(dishes);
     }
 }
