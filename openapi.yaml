@@ -1,0 +1,164 @@
+openapi: 3.1.0
+info:
+  title: Ingredient Management
+  description: API pour la gestion des ingrédients et des plats
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /ingredients:
+    get:
+      summary: Liste tous les ingrédients
+      responses:
+        '200':
+          description: Liste des ingrédients récupérée avec succès
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Ingredient'
+
+  /ingredients/{id}:
+    get:
+      summary: Récupérer un ingrédient par son ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ingrédient trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingredient'
+        '404':
+          description: Ingredient.id={id} is not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Ingredient.id=123 is not found"
+
+  /ingredients/{id}/stock:
+    get:
+      summary: Valeur du stock d'un ingrédient à un instant t
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: at
+          in: query
+          required: true
+          description: Date et heure precise
+          schema:
+            type: string
+            format: date-time
+        - name: unit
+          in: query
+          required: true
+          description: Unité de mesure
+          schema:
+            type: string
+            enum: [PCS, KG, L]
+      responses:
+        '200':
+          description: valeur du stock calculée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockValue'
+        '400':
+          description: Paramètre manquant
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Either mandatory query parameter `at` or `unit` is not provided."
+        '404':
+          description: Ingrédient non trouvé
+
+  /dishes:
+    get:
+      summary: Liste tous les plats avec leurs ingrédients
+      responses:
+        '200':
+          description: Liste des plats récupérée
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Dish'
+
+  /dishes/{id}/ingredients:
+    put:
+      summary: Associer ou détacher des ingrédients d'un plat
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Liste des ingrédients à associer/dissocier
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Ingredient'
+      responses:
+        '200':
+          description: Association mise à jour avec succès
+        '400':
+          description: Corps de requête manquant ou invalide
+        '404':
+          description: Dish.id={id} is not found
+
+components:
+  schemas:
+    Ingredient:
+      type: object
+      required: [id, name, category, price]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+          format: double
+
+    StockValue:
+      type: object
+      properties:
+        unit:
+          type: string
+          enum: [PCS, KG, L]
+        value:
+          type: number
+
+    Dish:
+      type: object
+      required: [id, name, unitPrice]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        unitPrice:
+          type: number
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ingredient'
