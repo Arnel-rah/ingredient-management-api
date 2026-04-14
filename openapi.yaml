@@ -1,18 +1,19 @@
 openapi: 3.1.0
 info:
-  title: Ingredient Management
-  description: API pour la gestion des ingrédients et des plats
+  title: Ingredient Management API
+  description: API for managing ingredients
   version: 1.0.0
+
 servers:
   - url: http://localhost:8080
 
 paths:
   /ingredients:
     get:
-      summary: Liste tous les ingrédients
+      summary: List all ingredients
       responses:
         '200':
-          description: Liste des ingrédients récupérée avec succès
+          description: List of ingredients retrieved successfully
           content:
             application/json:
               schema:
@@ -22,7 +23,7 @@ paths:
 
   /ingredients/{id}:
     get:
-      summary: Récupérer un ingrédient par son ID
+      summary: Get an ingredient by ID
       parameters:
         - name: id
           in: path
@@ -31,22 +32,22 @@ paths:
             type: string
       responses:
         '200':
-          description: Ingrédient trouvé
+          description: Ingredient found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Ingredient'
         '404':
-          description: Ingredient.id={id} is not found
+          description: Not Found
           content:
             text/plain:
               schema:
                 type: string
-                example: "Ingredient.id=123 is not found"
+                example: "Ingredient.id={id} is not found"
 
   /ingredients/{id}/stock:
     get:
-      summary: Valeur du stock d'un ingrédient à un instant t
+      summary: Get ingredient stock value at a specific time
       parameters:
         - name: id
           in: path
@@ -56,40 +57,39 @@ paths:
         - name: at
           in: query
           required: true
-          description: Date et heure precise
+          description: Specific date and time (ISO 8601)
           schema:
             type: string
             format: date-time
         - name: unit
           in: query
           required: true
-          description: Unité de mesure
           schema:
             type: string
             enum: [PCS, KG, L]
       responses:
         '200':
-          description: valeur du stock calculée
+          description: Stock value calculated
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/StockValue'
         '400':
-          description: Paramètre manquant
+          description: Bad Request
           content:
             text/plain:
               schema:
                 type: string
                 example: "Either mandatory query parameter `at` or `unit` is not provided."
         '404':
-          description: Ingrédient non trouvé
+          description: Ingredient not found
 
   /dishes:
     get:
-      summary: Liste tous les plats avec leurs ingrédients
+      summary: List all dishes with their ingredients
       responses:
         '200':
-          description: Liste des plats récupérée
+          description: List of dishes retrieved
           content:
             application/json:
               schema:
@@ -99,7 +99,7 @@ paths:
 
   /dishes/{id}/ingredients:
     put:
-      summary: Associer ou détacher des ingrédients d'un plat
+      summary: Update ingredients linked to a dish
       parameters:
         - name: id
           in: path
@@ -107,7 +107,7 @@ paths:
           schema:
             type: string
       requestBody:
-        description: Liste des ingrédients à associer/dissocier
+        description: List of ingredients to associate or dissociate
         required: true
         content:
           application/json:
@@ -117,9 +117,9 @@ paths:
                 $ref: '#/components/schemas/Ingredient'
       responses:
         '200':
-          description: Association mise à jour avec succès
+          description: Dish ingredients updated successfully
         '400':
-          description: Corps de requête manquant ou invalide
+          description: Missing or invalid request body
         '404':
           description: Dish.id={id} is not found
 
